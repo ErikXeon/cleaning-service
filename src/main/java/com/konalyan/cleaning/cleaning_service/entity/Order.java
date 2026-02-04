@@ -1,6 +1,5 @@
 package com.konalyan.cleaning.cleaning_service.entity;
 
-import com.konalyan.cleaning.cleaning_service.enums.CleaningServiceType;
 import com.konalyan.cleaning.cleaning_service.enums.OrderStatus;
 import jakarta.persistence.*;
 import lombok.*;

@@ -11,12 +11,11 @@ import com.konalyan.cleaning.cleaning_service.mapper.UserMapper;
 import com.konalyan.cleaning.cleaning_service.repository.RoleRepository;
 import com.konalyan.cleaning.cleaning_service.repository.UserRepository;
 import com.konalyan.cleaning.cleaning_service.repository.VerificationCodeRepository;
-import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import com.konalyan.cleaning.cleaning_service.dto.AssignRoleRequest;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -100,5 +99,30 @@ public class UserService {
 
         return userMapper.toUserResponse(user);
 
+    }
+
+    public UserResponse assignRole(AssignRoleRequest request) {
+        User user = userRepository.findByEmail(request.email())
+                .orElseThrow(UserNotFoundException::new);
+
+        Set<String> allowedRoles = Set.of("ROLE_CLIENT", "ROLE_MANAGER", "ROLE_CLEANER");
+        if (!allowedRoles.contains(request.role())) {
+            throw new BadRequest("Некорректная роль для назначения");
+        }
+
+        Role baseRole = roleRepository.findByName("ROLE_CLIENT")
+                .orElseThrow(() -> new RuntimeException("Role not found"));
+
+        Role targetRole = roleRepository.findByName(request.role())
+                .orElseThrow(() -> new RuntimeException("Role not found"));
+
+        if ("ROLE_CLIENT".equals(request.role())) {
+            user.setRoles(Set.of(baseRole));
+        } else {
+            user.setRoles(Set.of(baseRole, targetRole));
+        }
+
+        userRepository.save(user);
+        return userMapper.toUserResponse(user);
     }
     }

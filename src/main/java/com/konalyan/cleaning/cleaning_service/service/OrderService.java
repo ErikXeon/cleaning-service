@@ -8,18 +8,31 @@ import com.konalyan.cleaning.cleaning_service.exception.BadRequest;
 import com.konalyan.cleaning.cleaning_service.exception.NotFoundException;
 import com.konalyan.cleaning.cleaning_service.exception.UserNotFoundException;
 import com.konalyan.cleaning.cleaning_service.repository.CleaningServiceRepository;
-import com.konalyan.cleaning.cleaning_service.repository.LoginAttemptRepository;
 import com.konalyan.cleaning.cleaning_service.repository.OrderRepository;
 import com.konalyan.cleaning.cleaning_service.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.apache.coyote.BadRequestException;
-import org.springframework.data.crossstore.ChangeSetPersister;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
+
+import com.lowagie.text.Document;
+import com.lowagie.text.DocumentException;
+import com.lowagie.text.Element;
+import com.lowagie.text.Font;
+import com.lowagie.text.FontFactory;
+import com.lowagie.text.PageSize;
+import com.lowagie.text.Paragraph;
+import com.lowagie.text.Phrase;
+import com.lowagie.text.pdf.PdfPCell;
+import com.lowagie.text.pdf.PdfPTable;
+import com.lowagie.text.pdf.PdfWriter;
+
+import java.io.ByteArrayOutputStream;
 
 @Service
 @RequiredArgsConstructor
@@ -33,7 +46,8 @@ public class OrderService {
             String clientEmail,
             LocalDateTime dateTime,
             List<Long> serviceIds,
-            String notes
+            String notes,
+            String address
     ){
         User client = userRepository.findByEmail(clientEmail)
                 .orElseThrow(() -> new UserNotFoundException(clientEmail));
@@ -46,6 +60,9 @@ public class OrderService {
         if(services.isEmpty()){
             throw new BadRequest("drink at least one favor");
         }
+        if (services.size() != serviceIds.size()) {
+            throw new NotFoundException("Some services not found");
+        }
 
         BigDecimal totalPrice = calculateTotalPrice(services);
 
@@ -54,6 +71,7 @@ public class OrderService {
                 .dateTime(dateTime)
                 .services(services)
                 .notes(notes)
+                .address(address)
                 .status(OrderStatus.NEW)
                 .totalPrice(totalPrice)
                 .build();
@@ -78,13 +96,38 @@ public class OrderService {
     @Transactional
     public Order assignCleaner(Long orderId, String cleanerEmail, String managerEmail) {
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new NotFoundException("Заказ не найден"));
+                .orElseThrow(() -> new NotFoundException("Order not found"));
 
         User cleaner = userRepository.findByEmail(cleanerEmail)
-                .orElseThrow(() -> new NotFoundException("Уборщик не найден"));
+                .orElseThrow(() -> new NotFoundException("Cleaner not found"));
 
         User manager = userRepository.findByEmail(managerEmail)
-                .orElseThrow(() -> new NotFoundException("Менеджер не найден"));
+                .orElseThrow(() -> new NotFoundException("Manager not found"));
+
+        if (cleaner.getRoles().stream().noneMatch(role -> "ROLE_CLEANER".equals(role.getName()))) {
+            throw new BadRequest("User dont have role ROLE_CLEANER");
+        }
+
+        if (order.getStatus() != OrderStatus.NEW) {
+            throw new BadRequest("A cleaner can only be assigned to a new order.");
+        }
+
+        if (order.getCleaningStaff() != null) {
+            throw new BadRequest("A cleaner has already been assigned to the order.");
+        }
+
+        if (order.getDateTime() == null) {
+            throw new BadRequest("The date and time are not specified for the order.");
+        }
+
+        boolean hasConflict = orderRepository.existsByCleaningStaffEmailAndDateTimeAndStatusIn(
+                cleanerEmail,
+                order.getDateTime(),
+                List.of(OrderStatus.NEW, OrderStatus.IN_PROGRESS)
+        );
+        if (hasConflict) {
+            throw new BadRequest("The cleaner is already busy at this time.");
+        }
 
         order.setCleaningStaff(cleaner);
         order.setManager(manager);
@@ -111,9 +154,116 @@ public class OrderService {
         return orderRepository.findAll();
     }
 
-    public byte[] generatePdfForCleaner(String cleanerEmail, LocalDateTime date) {
-        // TODO: интеграция с PDF-сервисом
-        return new byte[0];
+    @Transactional(readOnly = true)
+    public byte[] generatePdfForCleaner(String cleanerEmail, LocalDate date) {
+        User cleaner = userRepository.findByEmail(cleanerEmail)
+                .orElseThrow(() -> new NotFoundException("Уборщик не найден"));
+
+        if (cleaner.getRoles().stream().noneMatch(role -> "ROLE_CLEANER".equals(role.getName()))) {
+            throw new BadRequest("Пользователь не имеет роли уборщика");
+        }
+
+        LocalDate targetDate = date != null ? date : LocalDate.now();
+        LocalDateTime start = targetDate.atStartOfDay();
+        LocalDateTime end = targetDate.atTime(LocalTime.MAX);
+
+        List<Order> orders = orderRepository.findAllByCleaningStaffEmailAndDateTimeBetween(
+                cleanerEmail,
+                start,
+                end
+        );
+
+        if (orders.isEmpty()) {
+            throw new NotFoundException("Заказы для уборщика на выбранную дату не найдены");
+        }
+
+        return buildCleanerOrdersPdf(cleaner, orders, targetDate);
+    }
+
+    private byte[] buildCleanerOrdersPdf(User cleaner, List<Order> orders, LocalDate date) {
+        try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+            Document document = new Document(PageSize.A4.rotate());
+            PdfWriter.getInstance(document, outputStream);
+            document.open();
+
+            Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 16);
+            Paragraph title = new Paragraph("Список заказов уборщика на " + date, titleFont);
+            title.setAlignment(Element.ALIGN_CENTER);
+            document.add(title);
+            document.add(new Paragraph(" "));
+
+            PdfPTable table = new PdfPTable(7);
+            table.setWidthPercentage(100);
+            table.setWidths(new float[]{2f, 2f, 2.5f, 2f, 3f, 3f, 1.5f});
+
+            addTableHeader(table, List.of(
+                    "Уборщик",
+                    "Клиент",
+                    "Адрес",
+                    "Дата/время",
+                    "Услуги",
+                    "Примечания",
+                    "Стоимость"
+            ));
+
+            for (Order order : orders) {
+                table.addCell(createCell(formatUserName(cleaner)));
+                table.addCell(createCell(formatUserName(order.getClient())));
+                table.addCell(createCell(valueOrDash(order.getAddress())));
+                table.addCell(createCell(order.getDateTime() != null ? order.getDateTime().toString() : "-"));
+                table.addCell(createCell(formatServices(order.getServices())));
+                table.addCell(createCell(valueOrDash(order.getNotes())));
+                table.addCell(createCell(order.getTotalPrice() != null ? order.getTotalPrice().toString() : "-"));
+            }
+
+            document.add(table);
+            document.close();
+            return outputStream.toByteArray();
+        } catch (DocumentException e) {
+            throw new BadRequest("Не удалось сформировать PDF-файл");
+        } catch (Exception e) {
+            throw new BadRequest("Ошибка при формировании PDF-файла");
+        }
+    }
+
+    private void addTableHeader(PdfPTable table, List<String> headers) {
+        Font headerFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
+        for (String header : headers) {
+            PdfPCell cell = new PdfPCell(new Phrase(header, headerFont));
+            cell.setHorizontalAlignment(Element.ALIGN_CENTER);
+            cell.setBackgroundColor(new java.awt.Color(230, 230, 230));
+            table.addCell(cell);
+        }
+    }
+
+    private PdfPCell createCell(String value) {
+        Font font = FontFactory.getFont(FontFactory.HELVETICA, 11);
+        PdfPCell cell = new PdfPCell(new Phrase(value, font));
+        cell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+        return cell;
+    }
+
+    private String formatServices(List<CleaningService> services) {
+        if (services == null || services.isEmpty()) {
+            return "-";
+        }
+        return services.stream()
+                .map(service -> service.getName() + " (" + service.getPrice() + ")")
+                .collect(Collectors.joining(", "));
+    }
+
+    private String formatUserName(User user) {
+        if (user == null) {
+            return "-";
+        }
+        String firstName = user.getFirstName() != null ? user.getFirstName() : "";
+        String lastName = user.getLastName() != null ? user.getLastName() : "";
+        String fullName = (firstName + " " + lastName).trim();
+        return fullName.isEmpty() ? user.getEmail() : fullName;
+    }
+
+    private String valueOrDash(String value) {
+        return value == null || value.isBlank() ? "-" : value;
     }
 
 }

@@ -23,8 +23,9 @@ public class ClientOrderController {
     public Order createOrder(@RequestParam LocalDateTime dateTime,
                              @RequestParam List<Long> serviceIds,
                              @RequestParam(required = false) String notes,
+                             @RequestParam(required = false) String address,
                              @RequestParam String clientEmail) {
-        return orderService.createOrder(clientEmail, dateTime, serviceIds, notes);
+        return orderService.createOrder(clientEmail, dateTime, serviceIds, notes, address);
     }
 
     @PreAuthorize("hasRole('ROLE_CLIENT')")

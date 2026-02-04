@@ -10,7 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -30,22 +30,24 @@ public class ManagerOrderController {
     @PostMapping("/orders/{orderId}/assign")
     public Order assignCleaner(@PathVariable Long orderId,
                                @RequestParam String cleanerEmail,
-                               @RequestParam String managerEmail) {
-        return orderService.assignCleaner(orderId, cleanerEmail, managerEmail);
+                               org.springframework.security.core.Authentication authentication
+    ) {
+        return orderService.assignCleaner(orderId, cleanerEmail, authentication.getName());
     }
 
     @PreAuthorize("hasRole('ROLE_MANAGER')")
     @PostMapping("/orders/{orderId}/status")
     public Order updateOrderStatus(@PathVariable Long orderId,
                                    @RequestParam OrderStatus status,
-                                   @RequestParam String managerEmail) {
-        return orderService.updateOrderStatus(orderId, status, managerEmail);
+                                   org.springframework.security.core.Authentication authentication
+    ) {                return orderService.updateOrderStatus(orderId, status, authentication.getName());
     }
 
     @PreAuthorize("hasRole('ROLE_MANAGER')")
     @GetMapping("/orders/pdf/{cleanerEmail}")
-    public ResponseEntity<byte[]> generatePdf(@PathVariable String cleanerEmail) {
-        byte[] pdf = orderService.generatePdfForCleaner(cleanerEmail, LocalDateTime.now());
+    public ResponseEntity<byte[]> generatePdf(@PathVariable String cleanerEmail,
+                                              @RequestParam(required = false) LocalDate date) {
+        byte[] pdf = orderService.generatePdfForCleaner(cleanerEmail, date);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"tasks.pdf\"")
                 .contentType(MediaType.APPLICATION_PDF)
