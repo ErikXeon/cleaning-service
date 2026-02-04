@@ -1,0 +1,2 @@
+ALTER TABLE verification_codes
+    ADD COLUMN code VARCHAR(10) NOT NULL DEFAULT '';

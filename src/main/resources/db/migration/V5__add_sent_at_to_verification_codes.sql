@@ -1,0 +1,2 @@
+ALTER TABLE verification_codes
+    ADD COLUMN sent_at TIMESTAMP NOT NULL DEFAULT NOW();

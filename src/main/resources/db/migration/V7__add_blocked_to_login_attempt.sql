@@ -1,0 +1,2 @@
+ALTER TABLE login_attempt
+    ADD COLUMN blocked BOOLEAN NOT NULL DEFAULT FALSE;
