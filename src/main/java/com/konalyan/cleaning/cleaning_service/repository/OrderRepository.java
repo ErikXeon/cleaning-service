@@ -11,7 +11,7 @@ import java.util.List;
 @Repository
 public interface OrderRepository extends JpaRepository<Order,Long> {
     List<Order> findAllByClientEmail(String email);
-    int countByDateTime(LocalDateTime dateTime);
-    boolean existsByCleaningStaffEmailAndDateTimeAndStatusIn(String email, LocalDateTime dateTime, List<OrderStatus> statuses);
     List<Order> findAllByCleaningStaffEmailAndDateTimeBetween(String email, LocalDateTime start, LocalDateTime end);
+    List<Order> findAllByDateTimeBetweenAndStatusIn(LocalDateTime start, LocalDateTime end, List<OrderStatus> statuses);
+    List<Order> findAllByCleaningStaffEmailAndStatusInAndDateTimeBetween(String email, List<OrderStatus> statuses, LocalDateTime start, LocalDateTime end);
 }

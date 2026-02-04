@@ -20,8 +20,11 @@ public class CleaningService {
     private Long id;
 
     @Column(name = "name")
-    private String name; // название услуги
+    private String name;
 
     @Column(name = "price")
-    private BigDecimal price; // стоимость услуги
+    private BigDecimal price;
+
+    @Column(name = "duration_minutes")
+    private Integer durationMinutes;
 }

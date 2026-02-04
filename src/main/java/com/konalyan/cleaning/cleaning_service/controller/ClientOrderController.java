@@ -1,9 +1,11 @@
 package com.konalyan.cleaning.cleaning_service.controller;
 
+import com.konalyan.cleaning.cleaning_service.dto.CreateOrderRequest;
 import com.konalyan.cleaning.cleaning_service.entity.Order;
 import com.konalyan.cleaning.cleaning_service.service.OrderService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -18,19 +20,22 @@ public class ClientOrderController {
 
     // ------------------- ЛК клиента -------------------
 
-    @PreAuthorize("hasRole('ROLE_CLIENT')")
+    @PreAuthorize("hasRole('ROLE_CLIENT') and !hasRole('ROLE_MANAGER')")
     @PostMapping("/orders")
-    public Order createOrder(@RequestParam LocalDateTime dateTime,
-                             @RequestParam List<Long> serviceIds,
-                             @RequestParam(required = false) String notes,
-                             @RequestParam(required = false) String address,
-                             @RequestParam String clientEmail) {
-        return orderService.createOrder(clientEmail, dateTime, serviceIds, notes, address);
+    public Order createOrder(@RequestBody CreateOrderRequest request,
+                              Authentication authentication) {
+        return orderService.createOrder(
+                authentication.getName(),
+                request.dateTime(),
+                request.serviceIds(),
+                request.notes(),
+                request.address()
+        );
     }
 
-    @PreAuthorize("hasRole('ROLE_CLIENT')")
+    @PreAuthorize("hasRole('ROLE_CLIENT') and !hasRole('ROLE_MANAGER')")
     @GetMapping("/orders")
-    public List<Order> getMyOrders(@RequestParam String clientEmail) {
-        return orderService.getMyOrders(clientEmail);
+    public List<Order> getMyOrders(Authentication authentication) {
+        return orderService.getMyOrders(authentication.getName());
     }
 }

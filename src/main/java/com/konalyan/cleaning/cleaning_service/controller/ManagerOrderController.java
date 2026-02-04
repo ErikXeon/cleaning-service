@@ -1,5 +1,7 @@
 package com.konalyan.cleaning.cleaning_service.controller;
 
+import com.konalyan.cleaning.cleaning_service.dto.AssignCleanerRequest;
+import com.konalyan.cleaning.cleaning_service.dto.UpdateOrderStatusRequest;
 import com.konalyan.cleaning.cleaning_service.entity.Order;
 import com.konalyan.cleaning.cleaning_service.enums.OrderStatus;
 import com.konalyan.cleaning.cleaning_service.service.OrderService;
@@ -29,18 +31,17 @@ public class ManagerOrderController {
     @PreAuthorize("hasRole('ROLE_MANAGER')")
     @PostMapping("/orders/{orderId}/assign")
     public Order assignCleaner(@PathVariable Long orderId,
-                               @RequestParam String cleanerEmail,
-                               org.springframework.security.core.Authentication authentication
-    ) {
-        return orderService.assignCleaner(orderId, cleanerEmail, authentication.getName());
+                               @RequestBody AssignCleanerRequest request,
+                               org.springframework.security.core.Authentication authentication) {
+        return orderService.assignCleaner(orderId, request.cleanerEmail(), authentication.getName());
     }
 
     @PreAuthorize("hasRole('ROLE_MANAGER')")
     @PostMapping("/orders/{orderId}/status")
     public Order updateOrderStatus(@PathVariable Long orderId,
-                                   @RequestParam OrderStatus status,
-                                   org.springframework.security.core.Authentication authentication
-    ) {                return orderService.updateOrderStatus(orderId, status, authentication.getName());
+                                   @RequestBody UpdateOrderStatusRequest request,
+                                   org.springframework.security.core.Authentication authentication) {
+        return orderService.updateOrderStatus(orderId, request.status(), authentication.getName());
     }
 
     @PreAuthorize("hasRole('ROLE_MANAGER')")

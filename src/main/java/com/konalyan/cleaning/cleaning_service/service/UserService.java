@@ -110,19 +110,12 @@ public class UserService {
             throw new BadRequest("Некорректная роль для назначения");
         }
 
-        Role baseRole = roleRepository.findByName("ROLE_CLIENT")
-                .orElseThrow(() -> new RuntimeException("Role not found"));
-
         Role targetRole = roleRepository.findByName(request.role())
                 .orElseThrow(() -> new RuntimeException("Role not found"));
 
-        if ("ROLE_CLIENT".equals(request.role())) {
-            user.setRoles(Set.of(baseRole));
-        } else {
-            user.setRoles(Set.of(baseRole, targetRole));
-        }
+        user.setRoles(Set.of(targetRole));
 
         userRepository.save(user);
         return userMapper.toUserResponse(user);
     }
-    }
+}

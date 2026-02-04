@@ -9,6 +9,7 @@ import com.konalyan.cleaning.cleaning_service.service.LoginAttemptService;
 import com.konalyan.cleaning.cleaning_service.service.UserService;
 import com.konalyan.cleaning.cleaning_service.service.VerificationService;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -113,5 +114,15 @@ public class AuthController {
         return new MessageResponse("code resent");
     }
 
+    @PostMapping("/logout")
+    @ResponseStatus(HttpStatus.OK)
+    public MessageResponse logout(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        if (session != null) {
+            session.invalidate();
+        }
+        SecurityContextHolder.clearContext();
+        return new MessageResponse("logged out");
+    }
 
 }
