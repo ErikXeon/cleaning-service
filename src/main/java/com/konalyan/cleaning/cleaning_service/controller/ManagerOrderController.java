@@ -1,9 +1,12 @@
 package com.konalyan.cleaning.cleaning_service.controller;
 
 import com.konalyan.cleaning.cleaning_service.dto.AssignCleanerRequest;
+import com.konalyan.cleaning.cleaning_service.dto.MessageResponse;
+import com.konalyan.cleaning.cleaning_service.dto.OrderResponse;
 import com.konalyan.cleaning.cleaning_service.dto.UpdateOrderStatusRequest;
 import com.konalyan.cleaning.cleaning_service.entity.Order;
 import com.konalyan.cleaning.cleaning_service.enums.OrderStatus;
+import com.konalyan.cleaning.cleaning_service.mapper.OrderMapper;
 import com.konalyan.cleaning.cleaning_service.service.OrderService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -21,27 +24,37 @@ import java.util.List;
 public class ManagerOrderController {
 
     private final OrderService orderService;
+    private final OrderMapper orderMapper;
 
     @PreAuthorize("hasRole('MANAGER')")
     @GetMapping("/orders")
-    public List<Order> getOrdersForManager() {
-        return orderService.getOrdersForManager();
+    public ResponseEntity<?> getOrdersForManager() {
+        List<Order> orders = orderService.getOrdersForManager();
+        if (orders.isEmpty()) {
+            return ResponseEntity.ok(new MessageResponse("Нет бронирований"));
+        }
+        List<OrderResponse> response = orders.stream()
+                .map(orderMapper::toResponse)
+                .toList();
+        return ResponseEntity.ok(response);
     }
 
     @PreAuthorize("hasRole('MANAGER')")
     @PostMapping("/orders/{orderId}/assign")
-    public Order assignCleaner(@PathVariable Long orderId,
-                               @RequestBody AssignCleanerRequest request,
-                               org.springframework.security.core.Authentication authentication) {
-        return orderService.assignCleaner(orderId, request.cleanerEmail(), authentication.getName());
+    public OrderResponse assignCleaner(@PathVariable Long orderId,
+                                       @RequestBody AssignCleanerRequest request,
+                                       org.springframework.security.core.Authentication authentication) {
+        Order order = orderService.assignCleaner(orderId, request.cleanerEmail(), authentication.getName());
+        return orderMapper.toResponse(order);
     }
 
     @PreAuthorize("hasRole('MANAGER')")
     @PostMapping("/orders/{orderId}/status")
-    public Order updateOrderStatus(@PathVariable Long orderId,
-                                   @RequestBody UpdateOrderStatusRequest request,
-                                   org.springframework.security.core.Authentication authentication) {
-        return orderService.updateOrderStatus(orderId, request.status(), authentication.getName());
+    public OrderResponse updateOrderStatus(@PathVariable Long orderId,
+                                           @RequestBody UpdateOrderStatusRequest request,
+                                           org.springframework.security.core.Authentication authentication) {
+        Order order = orderService.updateOrderStatus(orderId, request.status(), authentication.getName());
+        return orderMapper.toResponse(order);
     }
 
     @PreAuthorize("hasRole('ROLE_MANAGER')")

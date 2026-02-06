@@ -3,6 +3,8 @@ package com.konalyan.cleaning.cleaning_service.controller;
 import com.konalyan.cleaning.cleaning_service.dto.*;
 import com.konalyan.cleaning.cleaning_service.entity.User;
 import com.konalyan.cleaning.cleaning_service.exception.ForbiddenException;
+import com.konalyan.cleaning.cleaning_service.exception.TooManyLoginAttemptsException;
+import com.konalyan.cleaning.cleaning_service.exception.BadCredentialsException;
 import com.konalyan.cleaning.cleaning_service.exception.UserNotFoundException;
 import com.konalyan.cleaning.cleaning_service.repository.UserRepository;
 import com.konalyan.cleaning.cleaning_service.service.LoginAttemptService;
@@ -65,7 +67,7 @@ public class AuthController {
         String email = request.email();
 
         if (loginAttemptService.isBlocked(email)) {
-            throw new RuntimeException("Too many unfortunate mistakes, form in a few minutes");
+            throw new TooManyLoginAttemptsException();
         }
 
         try {
@@ -89,8 +91,7 @@ public class AuthController {
         } catch (Exception e) {
             loginAttemptService.loginFailed(email);
             log.warn("Failed login attempt for {}: {}", email, e.getMessage());
-            throw new RuntimeException("incorrect email or password");
-        }
+            throw new BadCredentialsException();        }
     }
 
     @PostMapping("/register")
