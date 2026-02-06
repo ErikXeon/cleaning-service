@@ -6,6 +6,7 @@ import com.konalyan.cleaning.cleaning_service.dto.OrderResponse;
 import com.konalyan.cleaning.cleaning_service.dto.UpdateOrderStatusRequest;
 import com.konalyan.cleaning.cleaning_service.entity.Order;
 import com.konalyan.cleaning.cleaning_service.enums.OrderStatus;
+import com.konalyan.cleaning.cleaning_service.exception.BadRequest;
 import com.konalyan.cleaning.cleaning_service.mapper.OrderMapper;
 import com.konalyan.cleaning.cleaning_service.service.OrderService;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +14,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -50,9 +52,15 @@ public class ManagerOrderController {
 
     @PreAuthorize("hasRole('MANAGER')")
     @PostMapping("/orders/{orderId}/status")
-    public OrderResponse updateOrderStatus(@PathVariable Long orderId,
-                                           @RequestBody UpdateOrderStatusRequest request,
-                                           org.springframework.security.core.Authentication authentication) {
+    public OrderResponse updateOrderStatus(
+            @PathVariable Long orderId,
+            @RequestBody UpdateOrderStatusRequest request,
+            Authentication authentication) {
+
+        if (request.status() == null) {
+            throw new BadRequest("Статус заказа не указан или некорректен");
+        }
+
         Order order = orderService.updateOrderStatus(orderId, request.status(), authentication.getName());
         return orderMapper.toResponse(order);
     }

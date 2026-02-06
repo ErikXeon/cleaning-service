@@ -12,8 +12,11 @@ import com.konalyan.cleaning.cleaning_service.repository.OrderRepository;
 import com.konalyan.cleaning.cleaning_service.repository.UserRepository;
 import com.lowagie.text.pdf.BaseFont;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.io.InputStream;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.math.BigDecimal;
@@ -38,6 +41,7 @@ import java.io.ByteArrayOutputStream;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class OrderService {
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
@@ -123,7 +127,7 @@ public class OrderService {
                 List.of(OrderStatus.NEW, OrderStatus.IN_PROGRESS)
         );
         if (hasConflict) {
-            throw new BadRequest("The cleaner is already busy at this time.");
+            throw new BadRequest("The cleaner is a lready busy at this time.");
         }
 
         order.setCleaningStaff(cleaner);
@@ -147,8 +151,8 @@ public class OrderService {
         order.setManager(manager);
 
         orderRepository.save(order);
-        return orderRepository.findDetailedById(orderId)
-                .orElseThrow(() -> new NotFoundException("Заказ не найден"));
+
+        return order;
     }
 
     public List<Order> getOrdersForManager() {
@@ -184,16 +188,15 @@ public class OrderService {
     private byte[] buildCleanerOrdersPdf(User cleaner, List<Order> orders, LocalDate date) {
         try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
 
-            // Документ А4, ландшафт, отступы 20
             Document document = new Document(PageSize.A4.rotate(), 20, 20, 20, 20);
             PdfWriter.getInstance(document, outputStream);
             document.open();
 
-            // Шрифты iText, только английские, без TTF
-            Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 16);
-            Font subtitleFont = FontFactory.getFont(FontFactory.HELVETICA, 12);
-            Font headerFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
-            Font cellFont = FontFactory.getFont(FontFactory.HELVETICA, 11);
+            // Шрифты
+            Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 16); // заголовок
+            Font subtitleFont = FontFactory.getFont(FontFactory.HELVETICA, 12); // инфо уборщика
+            Font headerFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12); // заголовки таблицы
+            Font cellFont = loadFont(11, false); // данные ячеек (русский/английский)
 
             // Заголовок
             Paragraph title = new Paragraph("Cleaner Task Sheet for " + date, titleFont);
@@ -223,31 +226,27 @@ public class OrderService {
                     "Status",
                     "Services (price / duration, min)",
                     "Notes",
-                    "Total Price, $"
+                    "Total Price, P"
             ), headerFont);
 
             for (Order order : orders) {
                 table.addCell(createCell(formatUserName(cleaner), cellFont, Element.ALIGN_LEFT));
                 table.addCell(createCell(formatUserName(order.getClient()), cellFont, Element.ALIGN_LEFT));
                 table.addCell(createCell(valueOrDash(order.getAddress()), cellFont, Element.ALIGN_LEFT));
-
                 table.addCell(createCell(
                         order.getDateTime() != null ? order.getDateTime().toString() : "-",
                         cellFont,
                         Element.ALIGN_CENTER
                 ));
-
                 table.addCell(createCell(
                         order.getStatus() != null ? order.getStatus().name() : "-",
                         cellFont,
                         Element.ALIGN_CENTER
                 ));
-
                 table.addCell(createCell(formatServices(order.getServices()), cellFont, Element.ALIGN_LEFT));
                 table.addCell(createCell(valueOrDash(order.getNotes()), cellFont, Element.ALIGN_LEFT));
-
                 table.addCell(createCell(
-                        order.getTotalPrice() != null ? order.getTotalPrice() + " $" : "-",
+                        order.getTotalPrice() != null ? order.getTotalPrice() + " P" : "-",
                         cellFont,
                         Element.ALIGN_RIGHT
                 ));
@@ -258,7 +257,7 @@ public class OrderService {
             return outputStream.toByteArray();
 
         } catch (Exception e) {
-            e.printStackTrace(); // чтобы видеть реальную ошибку
+            e.printStackTrace(); // видно реальную ошибку
             throw new BadRequest("Error generating PDF: " + e.getMessage());
         }
     }
@@ -285,10 +284,7 @@ public class OrderService {
 
 
     private String formatServices(List<CleaningService> services) {
-        if (services == null || services.isEmpty()) {
-            return "-";
-        }
-
+        if (services == null || services.isEmpty()) return "-";
         return services.stream()
                 .map(service -> {
                     String price = service.getPrice() != null ? service.getPrice() + "$" : "-$";
@@ -310,8 +306,9 @@ public class OrderService {
             );
 
             return new Font(baseFont, size, bold ? Font.BOLD : Font.NORMAL);
+
         } catch (Exception e) {
-            throw new RuntimeException("Не удалось загрузить шрифт для PDF", e);
+            throw new RuntimeException("Failed to load font for PDF", e);
         }
     }
 
