@@ -20,7 +20,7 @@ public class ClientOrderController {
 
     // ------------------- ЛК клиента -------------------
 
-    @PreAuthorize("hasRole('ROLE_CLIENT') and !hasRole('ROLE_MANAGER')")
+    @PreAuthorize("hasRole('CLIENT') and !hasRole('MANAGER')")
     @PostMapping("/orders")
     public Order createOrder(@RequestBody CreateOrderRequest request,
                               Authentication authentication) {
@@ -33,7 +33,7 @@ public class ClientOrderController {
         );
     }
 
-    @PreAuthorize("hasRole('ROLE_CLIENT') and !hasRole('ROLE_MANAGER')")
+    @PreAuthorize("hasRole('CLIENT') and !hasRole('MANAGER')")
     @GetMapping("/orders")
     public List<Order> getMyOrders(Authentication authentication) {
         return orderService.getMyOrders(authentication.getName());

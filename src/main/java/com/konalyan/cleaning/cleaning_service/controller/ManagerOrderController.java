@@ -22,13 +22,13 @@ public class ManagerOrderController {
 
     private final OrderService orderService;
 
-    @PreAuthorize("hasRole('ROLE_MANAGER')")
+    @PreAuthorize("hasRole('MANAGER')")
     @GetMapping("/orders")
     public List<Order> getOrdersForManager() {
         return orderService.getOrdersForManager();
     }
 
-    @PreAuthorize("hasRole('ROLE_MANAGER')")
+    @PreAuthorize("hasRole('MANAGER')")
     @PostMapping("/orders/{orderId}/assign")
     public Order assignCleaner(@PathVariable Long orderId,
                                @RequestBody AssignCleanerRequest request,
@@ -36,7 +36,7 @@ public class ManagerOrderController {
         return orderService.assignCleaner(orderId, request.cleanerEmail(), authentication.getName());
     }
 
-    @PreAuthorize("hasRole('ROLE_MANAGER')")
+    @PreAuthorize("hasRole('MANAGER')")
     @PostMapping("/orders/{orderId}/status")
     public Order updateOrderStatus(@PathVariable Long orderId,
                                    @RequestBody UpdateOrderStatusRequest request,

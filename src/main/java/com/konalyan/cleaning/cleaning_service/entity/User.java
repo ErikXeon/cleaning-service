@@ -1,5 +1,6 @@
 package com.konalyan.cleaning.cleaning_service.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -25,6 +26,7 @@ public class User {
     @Column(name = "email", unique = true, nullable = false, length = 50)
     private String email;
 
+    @JsonIgnore
     @Column(name = "password", nullable = false)
     private String password;
 

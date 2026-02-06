@@ -14,7 +14,7 @@ public class ManagerUserController {
 
     private final UserService userService;
 
-    @PreAuthorize("hasRole('ROLE_MANAGER')")
+    @PreAuthorize("hasRole('MANAGER')")
     @PostMapping("/roles")
     public UserResponse assignRole(@RequestBody AssignRoleRequest request) {
         return userService.assignRole(request);

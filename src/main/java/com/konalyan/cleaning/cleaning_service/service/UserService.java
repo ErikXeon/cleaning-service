@@ -113,7 +113,8 @@ public class UserService {
         Role targetRole = roleRepository.findByName(request.role())
                 .orElseThrow(() -> new RuntimeException("Role not found"));
 
-        user.setRoles(Set.of(targetRole));
+        user.getRoles().clear();
+        user.getRoles().add(targetRole);
 
         userRepository.save(user);
         return userMapper.toUserResponse(user);

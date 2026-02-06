@@ -17,6 +17,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -52,17 +53,19 @@ public class OrderService {
         User client = userRepository.findByEmail(clientEmail)
                 .orElseThrow(() -> new UserNotFoundException(clientEmail));
 
-        if(!isTimeSlotFree(dateTime)) {
-            throw new BadRequest("the selected slot is already occupied");
-        }
-
         List<CleaningService> services = cleaningServiceRepository.findAllById(serviceIds);
         if(services.isEmpty()){
-            throw new BadRequest("drink at least one favor");
+            throw new BadRequest("Выберите хотя бы одну услугу");
         }
         if (services.size() != serviceIds.size()) {
             throw new NotFoundException("Some services not found");
         }
+
+        int durationMinutes = calculateTotalDurationMinutes(services);
+        LocalDateTime endTime = dateTime.plusMinutes(durationMinutes);
+
+        validateCleanerAvailability(dateTime, endTime);
+
 
         BigDecimal totalPrice = calculateTotalPrice(services);
 
@@ -83,9 +86,6 @@ public class OrderService {
         return orderRepository.findAllByClientEmail(clientEmail);
     }
 
-    public boolean isTimeSlotFree(LocalDateTime dateTime) {
-        return orderRepository.countByDateTime(dateTime) == 0;
-    }
 
     private BigDecimal calculateTotalPrice(List<CleaningService> services) {
         return services.stream()
@@ -265,5 +265,81 @@ public class OrderService {
     private String valueOrDash(String value) {
         return value == null || value.isBlank() ? "-" : value;
     }
+
+    private int calculateTotalDurationMinutes(List<CleaningService> services) {
+        int totalMinutes = 0;
+        for (CleaningService service : services) {
+            Integer duration = service.getDurationMinutes();
+            if (duration == null || duration <= 0) {
+                throw new BadRequest("Для услуги \"" + service.getName() + "\" не задана длительность");
+            }
+            totalMinutes += duration;
+        }
+        return totalMinutes;
+    }
+
+    private void validateCleanerAvailability(LocalDateTime requestedStart, LocalDateTime requestedEnd) {
+        int cleanersCount = userRepository.countByRolesName("ROLE_CLEANER");
+        if (cleanersCount == 0) {
+            throw new BadRequest("Нет доступных уборщиков для бронирования");
+        }
+
+        List<Order> candidateOrders = orderRepository.findAllByDateTimeBetweenAndStatusIn(
+                requestedStart.minusDays(1),
+                requestedEnd.plusDays(1),
+                List.of(OrderStatus.NEW, OrderStatus.IN_PROGRESS)
+        );
+
+        List<Order> overlappingOrders = candidateOrders.stream()
+                .filter(order -> isOverlapping(order, requestedStart, requestedEnd))
+                .toList();
+
+        if (overlappingOrders.size() >= cleanersCount) {
+            LocalDateTime nearestAvailable = findNearestAvailableTime(overlappingOrders, requestedStart);
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+            String formatted = nearestAvailable != null ? formatter.format(nearestAvailable) : "неизвестно";
+            throw new BadRequest("Нет свободных уборщиков на это время. Ближайший освободится к " + formatted);
+        }
+    }
+
+    private boolean isOverlapping(Order order, LocalDateTime requestedStart, LocalDateTime requestedEnd) {
+        if (order.getDateTime() == null) {
+            return false;
+        }
+        int durationMinutes = calculateExistingOrderDurationMinutes(order);
+        LocalDateTime orderStart = order.getDateTime();
+        LocalDateTime orderEnd = orderStart.plusMinutes(durationMinutes);
+        return orderStart.isBefore(requestedEnd) && orderEnd.isAfter(requestedStart);
+    }
+
+    private int calculateExistingOrderDurationMinutes(Order order) {
+        if (order.getServices() == null || order.getServices().isEmpty()) {
+            return 0;
+        }
+        int totalMinutes = 0;
+        for (CleaningService service : order.getServices()) {
+            Integer duration = service.getDurationMinutes();
+            if (duration != null && duration > 0) {
+                totalMinutes += duration;
+            }
+        }
+        return totalMinutes;
+    }
+
+    private LocalDateTime findNearestAvailableTime(List<Order> overlappingOrders, LocalDateTime requestedStart) {
+        LocalDateTime nearest = null;
+        for (Order order : overlappingOrders) {
+            if (order.getDateTime() == null) {
+                continue;
+            }
+            int durationMinutes = calculateExistingOrderDurationMinutes(order);
+            LocalDateTime orderEnd = order.getDateTime().plusMinutes(durationMinutes);
+            if (orderEnd.isAfter(requestedStart) && (nearest == null || orderEnd.isBefore(nearest))) {
+                nearest = orderEnd;
+            }
+        }
+        return nearest;
+    }
+
 
 }
