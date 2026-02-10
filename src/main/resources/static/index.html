@@ -4,15 +4,17 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Cleaning Service</title>
-    <meta name="description" content="Личный кабинет клиента клинингового сервиса" />
+    <meta name="description" content="Личный кабинет клиента и менеджера" />
     <link rel="stylesheet" href="/assest/css/styles.css" />
 </head>
 <body>
+<div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
 <div class="app-shell">
     <header class="topbar">
         <div>
             <h1>Cleaning Service</h1>
-            <p class="subtitle">Управление профилем и заявками</p>
+            <p class="subtitle">Кабинет клиента и менеджера</p>
         </div>
         <div class="topbar-actions">
             <button id="btnRefresh" class="btn btn-secondary" type="button">Обновить</button>
@@ -20,28 +22,29 @@
         </div>
     </header>
 
-    <main class="layout">
-        <section class="panel" id="sessionPanel">
-            <h2>Сессия</h2>
-            <div id="alertBox" class="alert hidden" role="status" aria-live="polite"></div>
-            <div id="profileBlock" class="hidden"></div>
-            <p id="notAuthorizedText" class="muted hidden">Вы не авторизованы.</p>
-        </section>
+    <aside id="profileWidget" class="profile-widget hidden">
+        <h2>Профиль</h2>
+        <p><strong id="profileName">—</strong></p>
+        <p>Email: <span id="profileEmail">—</span></p>
+        <p>Статус: <span id="profileStatus">—</span></p>
+    </aside>
 
+    <main class="layout">
         <section class="panel" id="authPanel">
             <h2>Авторизация</h2>
+            <div id="alertBox" class="alert hidden" role="status" aria-live="polite"></div>
             <div class="tabs" role="tablist">
                 <button class="tab active" data-tab="loginTab" type="button">Вход</button>
                 <button class="tab" data-tab="registerTab" type="button">Регистрация</button>
-                <button class="tab" data-tab="verifyTab" type="button">Подтверждение</button>
+                <button class="tab hidden" data-tab="verifyTab" type="button" id="verifyTabButton">Подтверждение</button>
             </div>
 
             <div id="loginTab" class="tab-panel active">
                 <form id="loginForm" class="form-grid">
-                    <label> Email
+                    <label>Email
                         <input name="email" type="email" required autocomplete="email" />
                     </label>
-                    <label> Пароль
+                    <label>Пароль
                         <input name="password" type="password" required autocomplete="current-password" />
                     </label>
                     <button class="btn btn-primary" type="submit">Войти</button>
@@ -50,16 +53,16 @@
 
             <div id="registerTab" class="tab-panel">
                 <form id="registerForm" class="form-grid">
-                    <label> Email
+                    <label>Email
                         <input name="email" type="email" required autocomplete="email" />
                     </label>
-                    <label> Пароль
+                    <label>Пароль
                         <input name="password" type="password" minlength="6" required autocomplete="new-password" />
                     </label>
-                    <label> Имя
+                    <label>Имя
                         <input name="firstName" type="text" required />
                     </label>
-                    <label> Фамилия
+                    <label>Фамилия
                         <input name="lastName" type="text" required />
                     </label>
                     <button class="btn btn-primary" type="submit">Зарегистрироваться</button>
@@ -68,10 +71,9 @@
 
             <div id="verifyTab" class="tab-panel">
                 <form id="verifyForm" class="form-grid">
-                    <label> Email
-                        <input name="email" type="email" required autocomplete="email" />
-                    </label>
-                    <label> Код подтверждения
+                    <input name="email" type="hidden" />
+                    <p class="muted">Код отправлен на email: <strong id="verifyEmailText">—</strong></p>
+                    <label>Код подтверждения
                         <input name="code" type="text" minlength="6" maxlength="6" required />
                     </label>
                     <div class="inline-actions">
@@ -82,34 +84,65 @@
             </div>
         </section>
 
-        <section class="panel hidden" id="ordersPanel">
-            <h2>Заявка на уборку</h2>
+        <section class="panel hidden" id="clientOrderPanel">
+            <h2>Создать заявку</h2>
             <form id="orderForm" class="form-grid">
-                <label> Дата и время
+                <label>Дата и время
                     <input name="dateTime" type="datetime-local" required />
                 </label>
-                <label> Адрес
+                <label>Адрес
                     <input name="address" type="text" required placeholder="Город, улица, дом" />
                 </label>
-                <label> Комментарий
+                <label>Комментарий
                     <textarea name="notes" rows="3" placeholder="Пожелания по уборке"></textarea>
                 </label>
-
                 <fieldset class="services-fieldset">
                     <legend>Услуги</legend>
                     <div id="servicesContainer" class="services-list">
                         <p class="muted">Загрузка услуг...</p>
                     </div>
                 </fieldset>
-
                 <button class="btn btn-primary" type="submit">Создать заявку</button>
             </form>
         </section>
 
-        <section class="panel hidden" id="historyPanel">
+        <section class="panel hidden" id="clientOrdersPanel">
             <h2>Мои заявки</h2>
-            <div id="ordersContainer" class="cards">
+            <div id="clientOrdersContainer" class="cards">
                 <p class="muted">Список заявок будет здесь.</p>
+            </div>
+        </section>
+
+        <section class="panel hidden" id="managerPanel">
+            <h2>Панель менеджера</h2>
+
+            <div class="manager-block">
+                <h3>Назначить роль пользователю</h3>
+                <form id="assignRoleForm" class="inline-form">
+                    <input name="email" type="email" required placeholder="email пользователя" />
+                    <select name="role" required>
+                        <option value="ROLE_CLIENT">ROLE_CLIENT</option>
+                        <option value="ROLE_MANAGER">ROLE_MANAGER</option>
+                        <option value="ROLE_CLEANER">ROLE_CLEANER</option>
+                    </select>
+                    <button class="btn btn-primary" type="submit">Назначить роль</button>
+                </form>
+            </div>
+
+            <div class="manager-block">
+                <h3>Скачать PDF задач уборщика</h3>
+                <form id="pdfForm" class="inline-form">
+                    <input name="cleanerEmail" type="email" required placeholder="email уборщика" />
+                    <input name="date" type="date" />
+                    <button class="btn btn-secondary" type="submit">Скачать PDF</button>
+                </form>
+            </div>
+
+            <div class="manager-block">
+                <h3>Все заявки</h3>
+                <div id="managerOrdersContainer" class="cards">
+                    <p class="muted">Список заявок будет здесь.</p>
+                </div>
             </div>
         </section>
     </main>

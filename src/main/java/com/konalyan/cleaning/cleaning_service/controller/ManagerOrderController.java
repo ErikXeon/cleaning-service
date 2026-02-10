@@ -64,7 +64,7 @@ public class ManagerOrderController {
         return orderMapper.toResponse(order);
     }
 
-    @PreAuthorize("hasRole('ROLE_MANAGER')")
+    @PreAuthorize("hasRole('MANAGER')")
     @GetMapping("/orders/pdf/{cleanerEmail}")
     public ResponseEntity<byte[]> generatePdf(@PathVariable String cleanerEmail,
                                               @RequestParam(required = false) LocalDate date) {
