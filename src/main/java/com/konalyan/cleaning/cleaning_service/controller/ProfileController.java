@@ -20,7 +20,7 @@ public class ProfileController {
 
     @GetMapping()
     public UserResponse getProfile(Authentication authentication) {
-        log.info("AUTH NAME = {}", authentication.getName());
+        log.info("Имя аутентифицированного пользователя = {}", authentication.getName());
         return userService.getProfile(authentication.getName());
     }
 }

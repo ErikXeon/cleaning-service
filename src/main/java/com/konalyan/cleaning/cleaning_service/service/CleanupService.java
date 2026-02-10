@@ -20,19 +20,19 @@ public class CleanupService {
     @Transactional
     @Scheduled(cron = "0 0 * * * *")
     public void cleanExpiredVerificationCodes() {
-        log.info("Cleanup started: expired verification codes");
+        log.info("Очистка началась: просроченные коды подтверждения");
         verificationCodeRepository.deleteByExpiresAtBefore(LocalDateTime.now());
-        log.info("Cleanup finished: expired verification codes");
+        log.info("Очистка завершена: просроченные коды подтверждения");
     }
 
     @Transactional
     @Scheduled(cron = "0 0 2 * * MON")
     public void cleanOldLoginAttempts() {
-        log.info("Cleanup started: old login attempts");
+        log.info("Очистка началась: старые попытки входа");
         loginAttemptRepository.deleteByLastAttemptBefore(
                 LocalDateTime.now().minusDays(7)
         );
-        log.info("Cleanup finished: old login attempts");
+        log.info("Очистка завершена: старые попытки входа");
     }
 
 

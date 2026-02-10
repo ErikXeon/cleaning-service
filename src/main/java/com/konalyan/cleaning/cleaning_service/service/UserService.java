@@ -41,7 +41,7 @@ public class UserService {
 
         User user = userMapper.toEntity(request);
         Role clientRole = roleRepository.findByName("ROLE_CLIENT")
-                .orElseThrow(() -> new RuntimeException("Role not found"));
+                .orElseThrow(() -> new RuntimeException("Роль не найдена"));
 
         user.setCreatedAt(LocalDateTime.now());
         user.setUpdatedAt(null);
@@ -67,7 +67,7 @@ public class UserService {
         try {
             EmailNotification notification = new EmailNotification(user.getEmail(), generatedCode);
             kafkaProducerService.sendVerificationCode(notification);
-            log.info("Sent verification code event to Kafka for {}", user.getEmail());
+            log.info("Отправлено событие с кодом подтверждения в Kafka для {}", user.getEmail());
         } catch (Exception e) {
             log.error("Не удалось отправить код пользователю {}: {}", user.getEmail(), e.getMessage());
             throw new RuntimeException("Не удалось отправить код подтверждения, попробуйте позже");
@@ -111,7 +111,7 @@ public class UserService {
         }
 
         Role targetRole = roleRepository.findByName(request.role())
-                .orElseThrow(() -> new RuntimeException("Role not found"));
+                .orElseThrow(() -> new RuntimeException("Роль не найдена"));
 
         user.getRoles().clear();
         user.getRoles().add(targetRole);

@@ -24,7 +24,7 @@ public class LoginAttemptService {
             attempt.setBlocked(false);
             attempt.setBlockedUntil(null);
             loginAttemptRepository.save(attempt);
-            log.info("Login successful, attempts reset for {}", email);
+            log.info("Успешный вход, счётчик попыток сброшен для {}", email);
         });
     }
 
@@ -38,7 +38,7 @@ public class LoginAttemptService {
 
         if (attempt.isBlocked() && attempt.getBlockedUntil() != null &&
                 attempt.getBlockedUntil().isAfter(LocalDateTime.now())) {
-            log.warn("Blocked login attempt for {}", email);
+            log.warn("Заблокированная попытка входа для {}", email);
             return;
         }
 
@@ -48,7 +48,7 @@ public class LoginAttemptService {
         if (attempt.getAttempts() >= MAX_ATTEMPTS) {
             attempt.setBlocked(true);
             attempt.setBlockedUntil(LocalDateTime.now().plusMinutes(BLOCK_MINUTES));
-            log.warn("User {} blocked due to too many failed attempts", email);
+            log.warn("Пользователь {} заблокирован из-за большого числа неудачных попыток входа", email);
         }
 
         loginAttemptRepository.save(attempt);

@@ -57,8 +57,8 @@ public class VerificationService {
 
         verificationRepository.save(code);
         userRepository.save(user);
-        log.info("User {} successfully verified", email);
-        return "User " + email + " successfully verified";
+        log.info("Пользователь {} успешно подтверждён", email);
+        return "Пользователь " + email + " успешно подтверждён";
     }
 
     public void resendCode(String email) {

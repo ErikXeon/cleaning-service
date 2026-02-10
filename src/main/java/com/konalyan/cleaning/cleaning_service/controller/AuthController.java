@@ -12,6 +12,7 @@ import com.konalyan.cleaning.cleaning_service.service.UserService;
 import com.konalyan.cleaning.cleaning_service.service.VerificationService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -37,16 +38,16 @@ public class AuthController {
     @PostMapping("/verify")
     @ResponseStatus(HttpStatus.OK)
     public String verifyUser(
-            @RequestBody VerifyCodeRequest request
+            @Valid @RequestBody VerifyCodeRequest request
     ){
         User user = userRepository.findByEmail(request.email()).orElseThrow(
                 () -> new UserNotFoundException(request.email()));
         if(user.getEnabled().equals(true)) {
-            return "User" +  user.getEmail() + " is already enabled";
+            return "Пользователь " + user.getEmail() + " уже активирован";
         }
         verificationService.verify(request.email(), request.code());
-        log.info("method verifyUser called");
-        return "User " + request.email() + " successfully verified";
+        log.info("Метод verifyUser вызван");
+        return "Пользователь " + request.email() + " успешно подтверждён";
     }
 
     @PostMapping("/login")
@@ -59,7 +60,7 @@ public class AuthController {
                 !(auth instanceof AnonymousAuthenticationToken)) {
 
             return new LoginResponse(
-                    "you are already logged in",
+                    "Вы уже вошли в систему",
                     userService.getProfile(auth.getName())
             );
         }
@@ -84,13 +85,13 @@ public class AuthController {
                             SecurityContextHolder.getContext());
 
             return new  LoginResponse(
-                    "You successfully logged in",
+                    "Вы успешно вошли в систему",
                     userService.getProfile(authentication.getName())
             );
 
         } catch (Exception e) {
             loginAttemptService.loginFailed(email);
-            log.warn("Failed login attempt for {}: {}", email, e.getMessage());
+            log.warn("Неуспешная попытка входа для {}: {}", email, e.getMessage());
             throw new BadCredentialsException();        }
     }
 
@@ -98,7 +99,7 @@ public class AuthController {
     public UserResponse register(
             @RequestBody CreateUserRequest request
     ){
-        log.info("method register called");
+        log.info("Метод register вызван");
         return userService.registerUser(request);
     }
 
@@ -112,7 +113,7 @@ public class AuthController {
         }
 
         verificationService.resendCode(request.email());
-        return new MessageResponse("code resent");
+        return new MessageResponse("Код отправлен повторно");
     }
 
     @PostMapping("/logout")
@@ -123,7 +124,7 @@ public class AuthController {
             session.invalidate();
         }
         SecurityContextHolder.clearContext();
-        return new MessageResponse("logged out");
+        return new MessageResponse("Вы вышли из системы");
     }
 
 }
