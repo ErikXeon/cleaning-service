@@ -1,10 +1,12 @@
 package com.konalyan.cleaning.cleaning_service.controller;
 
+import com.konalyan.cleaning.cleaning_service.dto.CleaningServiceResponse;
 import com.konalyan.cleaning.cleaning_service.dto.CreateOrderRequest;
 import com.konalyan.cleaning.cleaning_service.dto.OrderResponse;
 import com.konalyan.cleaning.cleaning_service.entity.Order;
 import com.konalyan.cleaning.cleaning_service.dto.MessageResponse;
 import com.konalyan.cleaning.cleaning_service.mapper.OrderMapper;
+import com.konalyan.cleaning.cleaning_service.repository.CleaningServiceRepository;
 import com.konalyan.cleaning.cleaning_service.service.OrderService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -21,6 +23,7 @@ public class ClientOrderController {
 
     private final OrderService orderService;
     private final OrderMapper orderMapper;
+    private final CleaningServiceRepository cleaningServiceRepository;
 
     // ------------------- ЛК клиента -------------------
 
@@ -35,6 +38,19 @@ public class ClientOrderController {
                 request.notes(),
                 request.address()
         );
+    }
+
+    @PreAuthorize("hasRole('CLIENT') and !hasRole('MANAGER')")
+    @GetMapping("/services")
+    public List<CleaningServiceResponse> getAvailableServices() {
+        return cleaningServiceRepository.findAll().stream()
+                .map(service -> new CleaningServiceResponse(
+                        service.getId(),
+                        service.getName(),
+                        service.getPrice(),
+                        service.getDurationMinutes()
+                ))
+                .toList();
     }
 
     @PreAuthorize("hasRole('CLIENT') and !hasRole('MANAGER')")
