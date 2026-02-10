@@ -5,7 +5,6 @@ import com.konalyan.cleaning.cleaning_service.dto.MessageResponse;
 import com.konalyan.cleaning.cleaning_service.dto.OrderResponse;
 import com.konalyan.cleaning.cleaning_service.dto.UpdateOrderStatusRequest;
 import com.konalyan.cleaning.cleaning_service.entity.Order;
-import com.konalyan.cleaning.cleaning_service.enums.OrderStatus;
 import com.konalyan.cleaning.cleaning_service.exception.BadRequest;
 import com.konalyan.cleaning.cleaning_service.mapper.OrderMapper;
 import com.konalyan.cleaning.cleaning_service.service.OrderService;
@@ -57,7 +56,7 @@ public class ManagerOrderController {
             @RequestBody UpdateOrderStatusRequest request,
             Authentication authentication) {
 
-        if (request.status() == null) {
+        if (request == null || request.status() == null) {
             throw new BadRequest("Статус заказа не указан или некорректен");
         }
 

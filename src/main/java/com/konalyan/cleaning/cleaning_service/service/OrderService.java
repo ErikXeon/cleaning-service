@@ -152,7 +152,8 @@ public class OrderService {
 
         orderRepository.save(order);
 
-        return order;
+        return orderRepository.findDetailedById(orderId)
+                .orElseThrow(() -> new NotFoundException("Заказ не найден"));
     }
 
     public List<Order> getOrdersForManager() {
