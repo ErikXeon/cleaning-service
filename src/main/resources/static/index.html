@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cleaning Service</title>
+    <meta name="description" content="Личный кабинет клиента клинингового сервиса" />
+    <link rel="stylesheet" href="/assest/css/styles.css" />
+</head>
+<body>
+<div class="app-shell">
+    <header class="topbar">
+        <div>
+            <h1>Cleaning Service</h1>
+            <p class="subtitle">Управление профилем и заявками</p>
+        </div>
+        <div class="topbar-actions">
+            <button id="btnRefresh" class="btn btn-secondary" type="button">Обновить</button>
+            <button id="btnLogout" class="btn btn-danger hidden" type="button">Выйти</button>
+        </div>
+    </header>
+
+    <main class="layout">
+        <section class="panel" id="sessionPanel">
+            <h2>Сессия</h2>
+            <div id="alertBox" class="alert hidden" role="status" aria-live="polite"></div>
+            <div id="profileBlock" class="hidden"></div>
+            <p id="notAuthorizedText" class="muted hidden">Вы не авторизованы.</p>
+        </section>
+
+        <section class="panel" id="authPanel">
+            <h2>Авторизация</h2>
+            <div class="tabs" role="tablist">
+                <button class="tab active" data-tab="loginTab" type="button">Вход</button>
+                <button class="tab" data-tab="registerTab" type="button">Регистрация</button>
+                <button class="tab" data-tab="verifyTab" type="button">Подтверждение</button>
+            </div>
+
+            <div id="loginTab" class="tab-panel active">
+                <form id="loginForm" class="form-grid">
+                    <label> Email
+                        <input name="email" type="email" required autocomplete="email" />
+                    </label>
+                    <label> Пароль
+                        <input name="password" type="password" required autocomplete="current-password" />
+                    </label>
+                    <button class="btn btn-primary" type="submit">Войти</button>
+                </form>
+            </div>
+
+            <div id="registerTab" class="tab-panel">
+                <form id="registerForm" class="form-grid">
+                    <label> Email
+                        <input name="email" type="email" required autocomplete="email" />
+                    </label>
+                    <label> Пароль
+                        <input name="password" type="password" minlength="6" required autocomplete="new-password" />
+                    </label>
+                    <label> Имя
+                        <input name="firstName" type="text" required />
+                    </label>
+                    <label> Фамилия
+                        <input name="lastName" type="text" required />
+                    </label>
+                    <button class="btn btn-primary" type="submit">Зарегистрироваться</button>
+                </form>
+            </div>
+
+            <div id="verifyTab" class="tab-panel">
+                <form id="verifyForm" class="form-grid">
+                    <label> Email
+                        <input name="email" type="email" required autocomplete="email" />
+                    </label>
+                    <label> Код подтверждения
+                        <input name="code" type="text" minlength="6" maxlength="6" required />
+                    </label>
+                    <div class="inline-actions">
+                        <button class="btn btn-primary" type="submit">Подтвердить</button>
+                        <button id="btnResendCode" class="btn btn-secondary" type="button">Выслать код снова</button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <section class="panel hidden" id="ordersPanel">
+            <h2>Заявка на уборку</h2>
+            <form id="orderForm" class="form-grid">
+                <label> Дата и время
+                    <input name="dateTime" type="datetime-local" required />
+                </label>
+                <label> Адрес
+                    <input name="address" type="text" required placeholder="Город, улица, дом" />
+                </label>
+                <label> Комментарий
+                    <textarea name="notes" rows="3" placeholder="Пожелания по уборке"></textarea>
+                </label>
+
+                <fieldset class="services-fieldset">
+                    <legend>Услуги</legend>
+                    <div id="servicesContainer" class="services-list">
+                        <p class="muted">Загрузка услуг...</p>
+                    </div>
+                </fieldset>
+
+                <button class="btn btn-primary" type="submit">Создать заявку</button>
+            </form>
+        </section>
+
+        <section class="panel hidden" id="historyPanel">
+            <h2>Мои заявки</h2>
+            <div id="ordersContainer" class="cards">
+                <p class="muted">Список заявок будет здесь.</p>
+            </div>
+        </section>
+    </main>
+</div>
+
+<script src="/assest/js/app.js" defer></script>
+</body>
+</html>
