@@ -12,11 +12,15 @@ import com.konalyan.cleaning.cleaning_service.repository.OrderRepository;
 import com.konalyan.cleaning.cleaning_service.repository.UserRepository;
 import com.lowagie.text.pdf.BaseFont;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.ClassPathResource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.io.InputStream;
+import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.math.BigDecimal;
@@ -26,10 +30,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import com.lowagie.text.Document;
-import com.lowagie.text.DocumentException;
 import com.lowagie.text.Element;
 import com.lowagie.text.Font;
-import com.lowagie.text.FontFactory;
 import com.lowagie.text.PageSize;
 import com.lowagie.text.Paragraph;
 import com.lowagie.text.Phrase;
@@ -55,6 +57,12 @@ public class OrderService {
             String notes,
             String address
     ){
+        if (dateTime == null) {
+            throw new BadRequest("Укажите дату и время уборки");
+        }
+        if (!dateTime.isAfter(LocalDateTime.now())) {
+            throw new BadRequest("Нельзя оформить заявку на прошедшие дату и время");
+        }
         User client = userRepository.findByEmail(clientEmail)
                 .orElseThrow(() -> new UserNotFoundException(clientEmail));
 
@@ -194,19 +202,19 @@ public class OrderService {
             document.open();
 
             // Шрифты
-            Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 16); // заголовок
-            Font subtitleFont = FontFactory.getFont(FontFactory.HELVETICA, 12); // инфо уборщика
-            Font headerFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12); // заголовки таблицы
+            Font titleFont = loadFont(16, true); // заголовок
+            Font subtitleFont = loadFont(12, false); // инфо уборщика
+            Font headerFont = loadFont(12, true); // заголовки таблицы
             Font cellFont = loadFont(11, false); // данные ячеек (русский/английский)
 
             // Заголовок
-            Paragraph title = new Paragraph("Cleaner Task Sheet for " + date, titleFont);
+            Paragraph title = new Paragraph("Лист задач уборщика на " + date, titleFont);
             title.setAlignment(Element.ALIGN_CENTER);
             document.add(title);
 
             // Информация об уборщике
             Paragraph cleanerInfo = new Paragraph(
-                    "Cleaner: " + formatUserName(cleaner) + " (" + cleaner.getEmail() + ")",
+                    "Уборщик: " + formatUserName(cleaner) + " (" + cleaner.getEmail() + ")",
                     subtitleFont
             );
             cleanerInfo.setAlignment(Element.ALIGN_CENTER);
@@ -220,14 +228,14 @@ public class OrderService {
             table.setWidths(new float[]{2.2f, 2.2f, 3.8f, 2.8f, 2.2f, 4.8f, 3.8f, 2.2f});
 
             addTableHeader(table, List.of(
-                    "Cleaner",
-                    "Client",
-                    "Address",
-                    "Date/Time",
-                    "Status",
-                    "Services (price / duration, min)",
-                    "Notes",
-                    "Total Price, P"
+                    "Уборщик",
+                    "Клиент",
+                    "Адрес",
+                    "Дата/время",
+                    "Статус",
+                    "Услуги (цена / длительность, мин)",
+                    "Комментарий",
+                    "Итоговая цена, ₽"
             ), headerFont);
 
             for (Order order : orders) {
@@ -247,7 +255,7 @@ public class OrderService {
                 table.addCell(createCell(formatServices(order.getServices()), cellFont, Element.ALIGN_LEFT));
                 table.addCell(createCell(valueOrDash(order.getNotes()), cellFont, Element.ALIGN_LEFT));
                 table.addCell(createCell(
-                        order.getTotalPrice() != null ? order.getTotalPrice() + " P" : "-",
+                        order.getTotalPrice() != null ? order.getTotalPrice() + " ₽" : "-",
                         cellFont,
                         Element.ALIGN_RIGHT
                 ));
@@ -288,8 +296,8 @@ public class OrderService {
         if (services == null || services.isEmpty()) return "-";
         return services.stream()
                 .map(service -> {
-                    String price = service.getPrice() != null ? service.getPrice() + "$" : "-$";
-                    String duration = service.getDurationMinutes() != null ? service.getDurationMinutes() + " min" : "- min";
+                    String price = service.getPrice() != null ? service.getPrice() + " ₽" : "- ₽";
+                    String duration = service.getDurationMinutes() != null ? service.getDurationMinutes() + " мин" : "- мин";
                     return service.getName() + " (" + price + ", " + duration + ")";
                 })
                 .collect(Collectors.joining("\n"));
@@ -297,11 +305,16 @@ public class OrderService {
 
 
     private Font loadFont(float size, boolean bold) {
+        Path tempFontPath = null;
         try {
-            String fontPath = "fonts/DejaVuSans.ttf";
+            ClassPathResource fontResource = new ClassPathResource("fonts/DejaVuSans.ttf");
+            tempFontPath = Files.createTempFile("cleaning-font-", ".ttf");
+            try (InputStream inputStream = fontResource.getInputStream()) {
+                Files.copy(inputStream, tempFontPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
 
             BaseFont baseFont = BaseFont.createFont(
-                    fontPath,
+                    tempFontPath.toString(),
                     BaseFont.IDENTITY_H,
                     BaseFont.EMBEDDED
             );
@@ -310,6 +323,15 @@ public class OrderService {
 
         } catch (Exception e) {
             throw new RuntimeException("Failed to load font for PDF", e);
+        }
+        finally {
+            if (tempFontPath != null) {
+                try {
+                    Files.deleteIfExists(tempFontPath);
+                } catch (IOException ignored) {
+                    log.warn("Unable to delete temporary font file: {}", tempFontPath);
+                }
+            }
         }
     }
 

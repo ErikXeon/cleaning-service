@@ -79,7 +79,7 @@ public class VerificationService {
             throw new VerificationCodeExpiredException();
         }
 
-        int resendDelaySec = 180;
+        int resendDelaySec = 180; //поставил для показа, было 180 - время действия кода
 
         long secondsSinceLast =
                 Duration.between(lastCode.getSentAt(), LocalDateTime.now()).getSeconds();

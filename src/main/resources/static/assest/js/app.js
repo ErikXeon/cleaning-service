@@ -1,6 +1,7 @@
 const state = {
     user: null,
     services: [],
+    managerServices: [],
     verificationEmail: ''
 };
 
@@ -32,6 +33,7 @@ const el = {
 
     managerPanel: document.getElementById('managerPanel'),
     managerOrdersContainer: document.getElementById('managerOrdersContainer'),
+    managerServicesContainer: document.getElementById('managerServicesContainer'),
     assignRoleForm: document.getElementById('assignRoleForm'),
     pdfForm: document.getElementById('pdfForm')
 };
@@ -41,6 +43,7 @@ init();
 function init() {
     setupTabs();
     bindEvents();
+    syncDateTimeMin();
     refreshSession();
 }
 
@@ -77,6 +80,7 @@ async function refreshSession() {
     }
     if (roles.includes('ROLE_MANAGER')) {
         await loadManagerOrders();
+        await loadManagerServices();
     }
 }
 
@@ -189,10 +193,26 @@ async function onCreateOrder(event) {
         showMessage('Выберите хотя бы одну услугу', true);
         return;
     }
+    const dateTimeValue = String(formData.get('dateTime') || '').trim();
+    const orderDateTime = parseLocalDateTime(dateTimeValue);
+    if (!orderDateTime) {
+        showMessage('Укажите корректные дату и время', true);
+        return;
+    }
+    if (orderDateTime.getTime() <= Date.now()) {
+        showMessage('Нельзя оформить уборку на прошедшие дату и время', true);
+        return;
+    }
+
+    const address = String(formData.get('address') || '').trim();
+    if (!address) {
+        showMessage('Укажите адрес уборки', true);
+        return;
+    }
 
     const payload = {
-        dateTime: toBackendDateTime(formData.get('dateTime')),
-        address: String(formData.get('address') || '').trim(),
+        dateTime: toBackendDateTime(dateTimeValue),
+        address,
         notes: String(formData.get('notes') || '').trim() || null,
         serviceIds
     };
@@ -267,6 +287,41 @@ async function loadManagerOrders() {
 
     el.managerOrdersContainer.innerHTML = orders.map(renderManagerOrderCard).join('');
     bindManagerOrderActions();
+}
+
+async function loadManagerServices() {
+    if (!el.managerServicesContainer) {
+        return;
+    }
+
+    el.managerServicesContainer.innerHTML = '<p class="muted">Загрузка услуг...</p>';
+    const response = await api('/api/manager/services');
+    if (!response.ok) {
+        el.managerServicesContainer.innerHTML = '<p class="muted">Не удалось загрузить услуги.</p>';
+        return;
+    }
+
+    state.managerServices = Array.isArray(response.data) ? response.data : [];
+    if (!state.managerServices.length) {
+        el.managerServicesContainer.innerHTML = '<p class="muted">Услуги отсутствуют.</p>';
+        return;
+    }
+
+    el.managerServicesContainer.innerHTML = state.managerServices.map(service => `
+        <article class="order-card" data-service-id="${service.id}">
+            <div class="order-head">
+                <strong>${escapeHtml(service.name)}</strong>
+                <span class="badge">${service.durationMinutes || 0} мин</span>
+            </div>
+            <p><strong>Текущая цена:</strong> ${formatMoney(service.price)}</p>
+            <form class="service-price-form inline-form">
+                <input name="price" type="number" min="1" step="1" value="${Number(service.price) || ''}" required />
+                <button class="btn btn-primary" type="submit">Обновить цену</button>
+            </form>
+        </article>
+    `).join('');
+
+    bindManagerServiceActions();
 }
 
 function renderOrderCard(order) {
@@ -363,7 +418,34 @@ function bindManagerOrderActions() {
         });
     });
 }
+function bindManagerServiceActions() {
+    document.querySelectorAll('.service-price-form').forEach(form => {
+        form.addEventListener('submit', async event => {
+            event.preventDefault();
+            const serviceCard = event.target.closest('[data-service-id]');
+            const serviceId = serviceCard?.dataset.serviceId;
+            const price = Number(new FormData(form).get('price'));
 
+            if (!serviceId || !Number.isFinite(price) || price <= 0) {
+                showMessage('Укажите корректную цену больше нуля', true);
+                return;
+            }
+
+            const response = await api(`/api/manager/services/${serviceId}/price`, {
+                method: 'PATCH',
+                body: { price }
+            });
+
+            if (!response.ok) {
+                showMessage(response.message || 'Не удалось обновить цену услуги', true);
+                return;
+            }
+
+            showMessage('Цена услуги обновлена');
+            await Promise.all([loadServices(), loadManagerServices()]);
+        });
+    });
+}
 async function onAssignRole(event) {
     event.preventDefault();
     const payload = Object.fromEntries(new FormData(el.assignRoleForm));
@@ -518,6 +600,21 @@ function formatDate(value) {
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return value;
     return date.toLocaleString('ru-RU');
+}
+
+function syncDateTimeMin() {
+    const dateTimeInput = el.orderForm?.elements?.dateTime;
+    if (!dateTimeInput) {
+        return;
+    }
+    const now = new Date(Date.now() + 60_000);
+    dateTimeInput.min = now.toISOString().slice(0, 16);
+}
+
+function parseLocalDateTime(value) {
+    if (!value) return null;
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
 }
 
 function toBackendDateTime(value) {

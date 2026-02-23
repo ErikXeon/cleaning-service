@@ -2,11 +2,14 @@ package com.konalyan.cleaning.cleaning_service.controller;
 
 import com.konalyan.cleaning.cleaning_service.dto.AssignCleanerRequest;
 import com.konalyan.cleaning.cleaning_service.dto.MessageResponse;
+import com.konalyan.cleaning.cleaning_service.dto.CleaningServiceResponse;
 import com.konalyan.cleaning.cleaning_service.dto.OrderResponse;
 import com.konalyan.cleaning.cleaning_service.dto.UpdateOrderStatusRequest;
+import com.konalyan.cleaning.cleaning_service.dto.UpdateServicePriceRequest;
 import com.konalyan.cleaning.cleaning_service.entity.Order;
 import com.konalyan.cleaning.cleaning_service.exception.BadRequest;
 import com.konalyan.cleaning.cleaning_service.mapper.OrderMapper;
+import com.konalyan.cleaning.cleaning_service.service.CleaningServiceManagementService;
 import com.konalyan.cleaning.cleaning_service.service.OrderService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -26,6 +29,7 @@ public class ManagerOrderController {
 
     private final OrderService orderService;
     private final OrderMapper orderMapper;
+    private final CleaningServiceManagementService cleaningServiceManagementService;
 
     @PreAuthorize("hasRole('MANAGER')")
     @GetMapping("/orders")
@@ -41,10 +45,26 @@ public class ManagerOrderController {
     }
 
     @PreAuthorize("hasRole('MANAGER')")
+    @GetMapping("/services")
+    public List<CleaningServiceResponse> getServicesForManager() {
+        return cleaningServiceManagementService.getAllServices();
+    }
+
+    @PreAuthorize("hasRole('MANAGER')")
+    @PatchMapping("/services/{serviceId}/price")
+    public CleaningServiceResponse updateServicePrice(@PathVariable Long serviceId,
+                                                      @RequestBody UpdateServicePriceRequest request) {
+        if (request == null) {
+            throw new BadRequest("Тело запроса не может быть пустым");
+        }
+        return cleaningServiceManagementService.updateServicePrice(serviceId, request.price());
+    }
+
+    @PreAuthorize("hasRole('MANAGER')")
     @PostMapping("/orders/{orderId}/assign")
     public OrderResponse assignCleaner(@PathVariable Long orderId,
                                        @RequestBody AssignCleanerRequest request,
-                                       org.springframework.security.core.Authentication authentication) {
+                                       Authentication authentication) {
         Order order = orderService.assignCleaner(orderId, request.cleanerEmail(), authentication.getName());
         return orderMapper.toResponse(order);
     }
