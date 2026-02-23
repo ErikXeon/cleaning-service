@@ -11,6 +11,7 @@ import com.konalyan.cleaning.cleaning_service.repository.CleaningServiceReposito
 import com.konalyan.cleaning.cleaning_service.repository.OrderRepository;
 import com.konalyan.cleaning.cleaning_service.repository.UserRepository;
 import com.lowagie.text.pdf.BaseFont;
+import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.ClassPathResource;
 import lombok.extern.slf4j.Slf4j;
@@ -48,6 +49,7 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
     private final CleaningServiceRepository cleaningServiceRepository;
+    private Path cachedPdfFontPath;
 
     @Transactional
     public Order createOrder(
@@ -305,16 +307,9 @@ public class OrderService {
 
 
     private Font loadFont(float size, boolean bold) {
-        Path tempFontPath = null;
         try {
-            ClassPathResource fontResource = new ClassPathResource("fonts/DejaVuSans.ttf");
-            tempFontPath = Files.createTempFile("cleaning-font-", ".ttf");
-            try (InputStream inputStream = fontResource.getInputStream()) {
-                Files.copy(inputStream, tempFontPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-            }
-
             BaseFont baseFont = BaseFont.createFont(
-                    tempFontPath.toString(),
+                    getOrCreatePdfFontPath().toString(),
                     BaseFont.IDENTITY_H,
                     BaseFont.EMBEDDED
             );
@@ -324,14 +319,41 @@ public class OrderService {
         } catch (Exception e) {
             throw new RuntimeException("Failed to load font for PDF", e);
         }
-        finally {
-            if (tempFontPath != null) {
-                try {
-                    Files.deleteIfExists(tempFontPath);
-                } catch (IOException ignored) {
-                    log.warn("Unable to delete temporary font file: {}", tempFontPath);
-                }
+    }
+    private Path getOrCreatePdfFontPath() {
+        if (cachedPdfFontPath != null) {
+            return cachedPdfFontPath;
+        }
+
+        synchronized (this) {
+            if (cachedPdfFontPath != null) {
+                return cachedPdfFontPath;
             }
+
+            try {
+                ClassPathResource fontResource = new ClassPathResource("fonts/DejaVuSans.ttf");
+                Path tempFontPath = Files.createTempFile("cleaning-font-", ".ttf");
+                try (InputStream inputStream = fontResource.getInputStream()) {
+                    Files.copy(inputStream, tempFontPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                }
+                tempFontPath.toFile().deleteOnExit();
+                cachedPdfFontPath = tempFontPath;
+                return cachedPdfFontPath;
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to cache font for PDF", e);
+            }
+        }
+    }
+
+    @PreDestroy
+    public void cleanupCachedPdfFont() {
+        if (cachedPdfFontPath == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(cachedPdfFontPath);
+        } catch (IOException e) {
+            log.warn("Unable to delete cached font file: {}", cachedPdfFontPath, e);
         }
     }
 
