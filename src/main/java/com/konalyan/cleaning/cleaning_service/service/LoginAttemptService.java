@@ -15,8 +15,8 @@ public class LoginAttemptService {
 
     private final LoginAttemptRepository loginAttemptRepository;
 
-    private static final int MAX_ATTEMPTS = 5;
-    private static final int BLOCK_MINUTES = 15;
+    private static final int MAX_ATTEMPTS = 100;
+    private static final int BLOCK_MINUTES = 1;
 
     public void loginSucceeded(String email) {
         loginAttemptRepository.findByEmail(email).ifPresent(attempt -> {
