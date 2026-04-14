@@ -51,44 +51,36 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public LoginResponse login(@RequestBody LoginRequest request, HttpServletRequest httpRequest) {
-        Authentication auth =
+    public LoginResponse login(
+            @RequestBody LoginRequest request,
+            HttpServletRequest httpRequest) {
+            Authentication auth =
                 SecurityContextHolder.getContext().getAuthentication();
-
         if (auth != null &&
                 auth.isAuthenticated() &&
                 !(auth instanceof AnonymousAuthenticationToken)) {
-
             return new LoginResponse(
                     "Вы уже вошли в систему",
                     userService.getProfile(auth.getName())
             );
         }
-
         String email = request.email();
-
         if (loginAttemptService.isBlocked(email)) {
             throw new TooManyLoginAttemptsException();
         }
-
         try {
             UsernamePasswordAuthenticationToken authToken =
                     new UsernamePasswordAuthenticationToken(email, request.password());
-
             Authentication authentication = authenticationManager.authenticate(authToken);
-
             loginAttemptService.loginSucceeded(email);
-
             SecurityContextHolder.getContext().setAuthentication(authentication);
             httpRequest.getSession(true)
                     .setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,
                             SecurityContextHolder.getContext());
-
             return new  LoginResponse(
                     "Вы успешно вошли в систему",
                     userService.getProfile(authentication.getName())
             );
-
         } catch (Exception e) {
             loginAttemptService.loginFailed(email);
             log.warn("Неуспешная попытка входа для {}: {}", email, e.getMessage());

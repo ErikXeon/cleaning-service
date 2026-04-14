@@ -34,27 +34,21 @@ public class UserService {
     private final CodeGeneratorService codeGeneratorService;
 
     public UserResponse registerUser(CreateUserRequest request) {
-
         userRepository.findByEmail(request.email()).ifPresent(user -> {
             throw new UserAlreadyExistsException(request.email());
         });
-
         User user = userMapper.toEntity(request);
         Role clientRole = roleRepository.findByName("ROLE_CLIENT")
                 .orElseThrow(() -> new RuntimeException("Роль не найдена"));
-
         user.setCreatedAt(LocalDateTime.now());
         user.setUpdatedAt(null);
         user.setPassword(passwordEncoder.encode(request.password()));
         user.setEnabled(false);
         user.setRoles(Set.of(clientRole));
-
         String generatedCode = codeGeneratorService.generateSixDigitCode();
-
         VerificationCode lastCode = verificationCodeRepository
                 .findTopByEmailOrderBySentAtDesc(user.getEmail())
                 .orElse(null);
-
         int resendDelaySec = 180;
         if (lastCode != null) {
             long secondsSinceLast = Duration.between(lastCode.getSentAt(), LocalDateTime.now()).getSeconds();
@@ -63,7 +57,6 @@ public class UserService {
                 throw new RuntimeException("Код уже отправлен, попробуйте через " + remaining + " секунд");
             }
         }
-
         try {
             EmailNotification notification = new EmailNotification(user.getEmail(), generatedCode);
             kafkaProducerService.sendVerificationCode(notification);
@@ -72,9 +65,7 @@ public class UserService {
             log.error("Не удалось отправить код пользователю {}: {}", user.getEmail(), e.getMessage());
             throw new RuntimeException("Не удалось отправить код подтверждения, попробуйте позже");
         }
-
         userRepository.save(user);
-
         VerificationCode code = new VerificationCode();
         code.setUser(user);
         code.setCode(generatedCode);
@@ -83,9 +74,7 @@ public class UserService {
         code.setExpiresAt(LocalDateTime.now().plusMinutes(3));
         code.setSentAt(LocalDateTime.now());
         code.setEmail(user.getEmail());
-
         verificationCodeRepository.save(code);
-
         return userMapper.toUserResponse(user);
     }
 

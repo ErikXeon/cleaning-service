@@ -67,7 +67,6 @@ public class OrderService {
         }
         User client = userRepository.findByEmail(clientEmail)
                 .orElseThrow(() -> new UserNotFoundException(clientEmail));
-
         List<CleaningService> services = cleaningServiceRepository.findAllById(serviceIds);
         if(services.isEmpty()){
             throw new BadRequest("Выберите хотя бы одну услугу");
@@ -75,15 +74,10 @@ public class OrderService {
         if (services.size() != serviceIds.size()) {
             throw new NotFoundException("Some services not found");
         }
-
         int durationMinutes = calculateTotalDurationMinutes(services);
         LocalDateTime endTime = dateTime.plusMinutes(durationMinutes);
-
         validateCleanerAvailability(dateTime, endTime);
-
-
         BigDecimal totalPrice = calculateTotalPrice(services);
-
         Order order = Order.builder()
                 .client(client)
                 .dateTime(dateTime)
@@ -93,7 +87,6 @@ public class OrderService {
                 .status(OrderStatus.NEW)
                 .totalPrice(totalPrice)
                 .build();
-
         return orderRepository.save(order);
     }
 
@@ -111,42 +104,35 @@ public class OrderService {
     @Transactional
     public Order assignCleaner(Long orderId, String cleanerEmail, String managerEmail) {
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new NotFoundException("Order not found"));
-
+                .orElseThrow(() -> new NotFoundException("Заявка не найдена"));
         User cleaner = userRepository.findByEmail(cleanerEmail)
-                .orElseThrow(() -> new NotFoundException("Cleaner not found"));
+                .orElseThrow(() -> new NotFoundException("Уборщик не найден"));
+
         if (cleaner.getRoles().stream().noneMatch(role -> "ROLE_CLEANER".equals(role.getName()))) {
-            throw new BadRequest("User dont have role ROLE_CLEANER");
+            throw new BadRequest("Пользователь не имеет роль ROLE_CLEANER");
         }
-
         if (order.getStatus() != OrderStatus.NEW) {
-            throw new BadRequest("A cleaner can only be assigned to a new order.");
+            throw new BadRequest("Уборщика можно назначить только на новую заявку");
         }
-
         if (order.getCleaningStaff() != null) {
-            throw new BadRequest("A cleaner has already been assigned to the order.");
+            throw new BadRequest("На данную заявку уборщик уже назначен");
         }
-
         if (order.getDateTime() == null) {
-            throw new BadRequest("The date and time are not specified for the order.");
+            throw new BadRequest("Для заявки не указаны дата и время");
         }
-
         boolean hasConflict = orderRepository.existsByCleaningStaffEmailAndDateTimeAndStatusIn(
                 cleanerEmail,
                 order.getDateTime(),
                 List.of(OrderStatus.NEW, OrderStatus.IN_PROGRESS)
         );
         if (hasConflict) {
-            throw new BadRequest("The cleaner is a lready busy at this time.");
+            throw new BadRequest("Уборщик уже занят в это время");
         }
-
         order.setCleaningStaff(cleaner);
         order.setStatus(OrderStatus.IN_PROGRESS);
-
         orderRepository.save(order);
-
         return orderRepository.findDetailedById(orderId)
-                .orElseThrow(() -> new NotFoundException("Order not found"));
+                .orElseThrow(() -> new NotFoundException("Заказ не найден"));
     }
 
     @Transactional
@@ -203,18 +189,16 @@ public class OrderService {
             PdfWriter.getInstance(document, outputStream);
             document.open();
 
-            // Шрифты
-            Font titleFont = loadFont(16, true); // заголовок
-            Font subtitleFont = loadFont(12, false); // инфо уборщика
-            Font headerFont = loadFont(12, true); // заголовки таблицы
-            Font cellFont = loadFont(11, false); // данные ячеек (русский/английский)
 
-            // Заголовок
+            Font titleFont = loadFont(16, true);
+            Font subtitleFont = loadFont(12, false);
+            Font headerFont = loadFont(12, true);
+            Font cellFont = loadFont(11, false);
+
             Paragraph title = new Paragraph("Лист задач уборщика на " + date, titleFont);
             title.setAlignment(Element.ALIGN_CENTER);
             document.add(title);
 
-            // Информация об уборщике
             Paragraph cleanerInfo = new Paragraph(
                     "Уборщик: " + formatUserName(cleaner) + " (" + cleaner.getEmail() + ")",
                     subtitleFont
@@ -223,7 +207,6 @@ public class OrderService {
             cleanerInfo.setSpacingAfter(15f);
             document.add(cleanerInfo);
 
-            // Таблица
             PdfPTable table = new PdfPTable(8);
             table.setWidthPercentage(100);
             table.setSpacingBefore(10f);
@@ -268,7 +251,8 @@ public class OrderService {
             return outputStream.toByteArray();
 
         } catch (Exception e) {
-            e.printStackTrace(); // видно реальную ошибку
+            e.printStackTrace();
+            e.printStackTrace();
             throw new BadRequest("Error generating PDF: " + e.getMessage());
         }
     }
